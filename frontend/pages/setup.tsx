@@ -11,6 +11,10 @@ type Status = {
   success?: string;
 };
 
+function shortHash(value: string) {
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 export default function SetupPage() {
   const { address, isConnected, chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
@@ -77,16 +81,16 @@ export default function SetupPage() {
 
   return (
     <Layout title="Setup ENS Preferences">
-      <div className="card p-6">
-        <p className="mb-4 text-sm text-white/70">
+      <div className="card stagger">
+        <p className="label-text">
           Connected wallet: {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
         </p>
 
         <div className="grid gap-4">
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Your ENS Name</span>
+            <span className="label-text">Your ENS Name</span>
             <input
-              className="rounded border border-white/20 bg-black/30 p-2"
+              className="input"
               placeholder="alice.eth"
               value={ensName}
               onChange={(e) => setEnsName(e.target.value.trim())}
@@ -94,31 +98,31 @@ export default function SetupPage() {
           </label>
 
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Preferred Token</span>
-            <input className="rounded border border-white/20 bg-black/30 p-2" value={token} onChange={(e) => setToken(e.target.value)} />
+            <span className="label-text">Preferred Token</span>
+            <input className="input" value={token} onChange={(e) => setToken(e.target.value)} />
           </label>
 
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Preferred DEX</span>
-            <input className="rounded border border-white/20 bg-black/30 p-2" value={dex} onChange={(e) => setDex(e.target.value)} />
+            <span className="label-text">Preferred DEX</span>
+            <input className="input" value={dex} onChange={(e) => setDex(e.target.value)} />
           </label>
 
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Slippage (%)</span>
+            <span className="label-text">Slippage (%)</span>
             <input
-              className="rounded border border-white/20 bg-black/30 p-2"
+              className="input"
               value={slippage}
               onChange={(e) => setSlippage(e.target.value)}
             />
           </label>
 
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Note (optional)</span>
-            <textarea className="rounded border border-white/20 bg-black/30 p-2" value={note} onChange={(e) => setNote(e.target.value)} />
+            <span className="label-text">Note (optional)</span>
+            <textarea className="input min-h-[88px]" value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
 
-          <label className="flex items-center justify-between rounded border border-white/20 bg-black/30 p-3">
-            <span className="text-sm text-white/80">Enable Stealth Payments</span>
+          <label className="flex items-center justify-between rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3">
+            <span className="label-text text-white">Enable Stealth Payments</span>
             <input
               type="checkbox"
               className="h-4 w-4 accent-blue-500"
@@ -128,17 +132,13 @@ export default function SetupPage() {
           </label>
         </div>
 
-        <button
-          className="mt-5 rounded bg-accent px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={savePreferences}
-          disabled={disabled}
-        >
+        <button className="btn btn-primary mt-5" onClick={savePreferences} disabled={disabled}>
           {isConfirming ? "Confirming..." : "Save Preferences"}
         </button>
 
-        {status.error && <p className="mt-3 text-sm text-red-400">{status.error}</p>}
-        {status.success && <p className="mt-3 text-sm text-green-400">{status.success}</p>}
-        {status.hash && <p className="mt-2 text-xs text-white/60">Last tx: {status.hash}</p>}
+        {status.error && <p className="mt-3 text-sm text-[#EF4444]">{status.error}</p>}
+        {status.success && <p className="mt-3 text-sm text-[#22C55E]">{status.success}</p>}
+        {status.hash && <p className="label-text mt-2">Last tx: {shortHash(status.hash)}</p>}
       </div>
     </Layout>
   );

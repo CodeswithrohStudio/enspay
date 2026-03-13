@@ -134,12 +134,12 @@ export default function ShareablePayProfilePage() {
 
   return (
     <Layout title="Payment Profile">
-      <div className="card mx-auto max-w-xl p-6">
-        {loading && <p className="text-white/70">Loading profile...</p>}
-        {error && <p className="text-red-400">{error}</p>}
+      <div className="card mx-auto max-w-xl">
+        {loading && <div className="skeleton h-16 w-full" />}
+        {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
         {!loading && !error && profile && (
-          <div className="grid gap-5">
+          <div className="stagger grid gap-5">
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
                 <img src={profile.avatarUrl} alt={`${profile.ensName} avatar`} className="h-16 w-16 rounded-full border border-white/20 object-cover" />
@@ -149,21 +149,21 @@ export default function ShareablePayProfilePage() {
                 </div>
               )}
               <div>
-                <h2 className="text-2xl font-semibold">{profile.ensName}</h2>
-                <p className="text-sm text-white/70">
+                <h2 className="ens-title">{profile.ensName}</h2>
+                <p className="label-text">
                   Prefers {profile.token} via {profile.dex}
                 </p>
               </div>
             </div>
 
             {profile.note ? (
-              <div className="rounded border border-white/15 p-3 text-sm text-white/80">{profile.note}</div>
+              <div className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3 text-sm text-white/80">{profile.note}</div>
             ) : (
-              <div className="rounded border border-white/15 p-3 text-sm text-white/50">No note set</div>
+              <div className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3 text-sm text-[#71717A]">No note set</div>
             )}
 
             {profile.stealth && (
-              <div className="w-fit rounded-full border border-accent/60 px-3 py-1 text-sm text-accent">
+              <div className="badge badge-blue">
                 🔒 Stealth Payments Enabled
               </div>
             )}
@@ -171,24 +171,24 @@ export default function ShareablePayProfilePage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Link
                 href={`/?ens=${encodeURIComponent(profile.ensName)}`}
-                className="rounded bg-accent px-4 py-3 text-center text-lg font-semibold"
+                className="btn btn-primary text-center"
               >
                 Pay {profile.ensName}
               </Link>
               <button
                 onClick={copyLink}
-                className="rounded border border-accent px-4 py-3 text-sm font-medium text-accent"
+                className="btn btn-secondary"
               >
                 {copied ? "Copied" : "Copy Payment Link"}
               </button>
             </div>
 
-            <div className="rounded border border-white/15 p-4">
-              <h3 className="text-base font-semibold">Recent Transactions</h3>
+            <div className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-4">
+              <h3 className="section-title">Recent Transactions</h3>
               <div className="mt-3 grid gap-2">
-                {txs.length === 0 && <p className="text-sm text-white/60">No payments yet</p>}
+                {txs.length === 0 && <p className="label-text">No payments yet</p>}
                 {txs.map((tx, i) => (
-                  <div key={`${tx.amount.toString()}-${i}`} className="rounded border border-white/10 p-2 text-sm">
+                  <div key={`${tx.amount.toString()}-${i}`} className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-2 text-sm">
                     {formatUnits(tx.amount, 6)} {tx.token}
                   </div>
                 ))}

@@ -13,6 +13,10 @@ import Layout from "@/components/Layout";
 import { getAmountOutMinimumFromSlippage, getENSPayPreferences, type ENSPayPreferences } from "@/utils/ens";
 import { BASE_SEPOLIA_USDC, ENSPAY_ROUTER_ABI, ENSPAY_ROUTER_ADDRESS, ERC20_ABI } from "@/utils/contracts";
 
+function shortAddress(addr: string) {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { isConnected, chainId } = useAccount();
@@ -126,19 +130,19 @@ export default function HomePage() {
 
   return (
     <Layout title="Pay or Swap by ENS">
-      <div className="card p-6">
+      <div className="card stagger">
         <div className="grid gap-4">
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Enter ENS Name</span>
+            <span className="label-text">Enter ENS Name</span>
             <input
-              className="rounded border border-white/20 bg-black/30 p-2"
+              className="input"
               placeholder="alice.eth"
               value={ensName}
               onChange={(e) => setEnsName(e.target.value)}
             />
           </label>
           <button
-            className="w-fit rounded bg-accent px-4 py-2 font-medium disabled:opacity-50"
+            className="btn btn-primary w-fit"
             onClick={resolveEnsName}
             disabled={!ensName || resolving}
           >
@@ -147,39 +151,39 @@ export default function HomePage() {
         </div>
 
         {prefs && (
-          <div className="mt-5 rounded border border-white/15 p-4">
+          <div className="mt-5 rounded-2xl border border-[#27272A] bg-[#1A1A1A] p-4">
             <div className="flex items-center gap-2">
-              <p className="font-medium">
+              <p className="ens-title">
                 {ensName} prefers {prefs.token} on {prefs.network} via {prefs.dex}
               </p>
               {prefs.isStealthy && (
-                <span className="rounded-full border border-accent/60 px-2 py-0.5 text-xs text-accent">
+                <span className="badge badge-blue">
                   🔒 Stealth Mode
                 </span>
               )}
             </div>
-            <p className="text-sm text-white/70">Slippage: {prefs.slippage}%</p>
-            {prefs.note && <p className="text-sm text-white/70">Note: {prefs.note}</p>}
-            <p className="mt-1 text-xs text-white/60">
-              Recipient: {prefs.isStealthy ? "Address hidden for privacy" : prefs.address}
+            <p className="label-text mt-1">Slippage: {prefs.slippage}%</p>
+            {prefs.note && <p className="label-text mt-1">Note: {prefs.note}</p>}
+            <p className="label-text mt-1">
+              Recipient: {prefs.isStealthy ? "Address hidden for privacy" : shortAddress(prefs.address)}
             </p>
           </div>
         )}
 
         <div className="mt-6 grid gap-3">
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Amount (USDC decimals: 6)</span>
+            <span className="label-text">Amount (USDC decimals: 6)</span>
             <input
-              className="rounded border border-white/20 bg-black/30 p-2"
+              className="input"
               placeholder="10"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm text-white/70">Swap Input Token (Base Sepolia)</span>
+            <span className="label-text">Swap Input Token (Base Sepolia)</span>
             <input
-              className="rounded border border-white/20 bg-black/30 p-2"
+              className="input"
               value={inputToken}
               onChange={(e) => setInputToken(e.target.value)}
             />
@@ -187,15 +191,11 @@ export default function HomePage() {
         </div>
 
         <div className="mt-5 flex gap-3">
-          <button
-            className="rounded bg-accent px-4 py-2 font-medium disabled:opacity-50"
-            onClick={pay}
-            disabled={!prefs || !amountInBaseUnits || confirming}
-          >
+          <button className="btn btn-primary" onClick={pay} disabled={!prefs || !amountInBaseUnits || confirming}>
             Pay
           </button>
           <button
-            className="rounded border border-accent px-4 py-2 font-medium text-accent disabled:opacity-50"
+            className="btn btn-secondary"
             onClick={swapAndPay}
             disabled={!prefs || !amountInBaseUnits || confirming}
           >
@@ -203,12 +203,12 @@ export default function HomePage() {
           </button>
         </div>
 
-        {status.error && <p className="mt-4 text-sm text-red-400">{status.error}</p>}
-        {status.success && <p className="mt-4 text-sm text-green-400">{status.success}</p>}
-        {status.hash && <p className="mt-2 text-xs text-white/60">Tx Hash: {status.hash}</p>}
+        {status.error && <p className="mt-4 text-sm text-[#EF4444]">{status.error}</p>}
+        {status.success && <p className="mt-4 text-sm text-[#22C55E]">{status.success}</p>}
+        {status.hash && <p className="label-text mt-2">Tx Hash: {shortAddress(status.hash)}</p>}
 
         {amountInBaseUnits && (
-          <p className="mt-2 text-xs text-white/60">
+          <p className="label-text mt-2">
             Parsed amount: {formatUnits(amountInBaseUnits, 6)} USDC units
           </p>
         )}

@@ -100,29 +100,32 @@ export default function DashboardPage() {
   }, [routes]);
 
   return (
-    <Layout title="Demo Dashboard">
-      <div className="grid gap-5">
+    <Layout title="Demo Dashboard" wide>
+      <div className="stagger grid gap-5">
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="card p-5">
-            <p className="text-sm text-white/70">Total Transactions Routed</p>
-            <p className="mt-2 text-3xl font-semibold">{stats.totalTx}</p>
+          <div className="card card-interactive">
+            <p className="label-text">Total Transactions Routed</p>
+            <p className="section-title mt-2">{stats.totalTx}</p>
           </div>
-          <div className="card p-5">
-            <p className="text-sm text-white/70">Total Volume (USDC)</p>
-            <p className="mt-2 text-3xl font-semibold">{formatUnits(stats.totalVolume, 6)}</p>
+          <div className="card card-interactive">
+            <p className="label-text">Total Volume (USDC)</p>
+            <p className="section-title mt-2">{formatUnits(stats.totalVolume, 6)}</p>
           </div>
         </div>
 
-        <div className="card p-5">
-          <h2 className="text-lg font-semibold">Last 5 Recent Routes</h2>
-          {loading && <p className="mt-3 text-sm text-white/70">Loading...</p>}
-          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        <div className="card">
+          <h2 className="section-title">Last 5 Recent Routes</h2>
+          {loading && <div className="skeleton mt-4 h-12 w-full" />}
+          {error && <p className="mt-3 text-sm text-[#EF4444]">{error}</p>}
           {!loading && !error && stats.recent.length === 0 && (
-            <p className="mt-3 text-sm text-white/70">No routed transactions yet.</p>
+            <p className="label-text mt-3">No routed transactions yet.</p>
           )}
           <div className="mt-3 grid gap-2">
             {stats.recent.map((row, idx) => (
-              <div key={`${row.sender}-${row.recipient}-${idx}`} className="rounded border border-white/10 p-3 text-sm">
+              <div
+                key={`${row.sender}-${row.recipient}-${idx}`}
+                className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3 text-sm"
+              >
                 {shortAddress(row.sender)} to {row.recipientEns} ({shortAddress(row.recipient)}) |{" "}
                 {formatUnits(row.amount, 6)} {row.token} | {row.type}
               </div>

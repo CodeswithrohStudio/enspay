@@ -1,16 +1,27 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --border: #27272a;
+  --accent: #3b82f6;
+  --success: #22c55e;
+  --error: #ef4444;
+  --text: #ffffff;
+  --muted: #71717a;
+}
+
 html,
 body,
 #__next {
   margin: 0;
-  min-height: 100%;
-  background: #0f0f0f;
-  color: #ffffff;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
   font-family: "Inter", sans-serif;
 }
 
@@ -23,9 +34,215 @@ a {
   box-sizing: border-box;
 }
 
+*::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
+.font-heading {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.page-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 36px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.section-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.ens-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.label-text {
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .card {
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(6px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.05);
+}
+
+.card-interactive {
+  transition: all 0.2s ease;
+}
+
+.card-interactive:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.1);
+}
+
+.input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  color: var(--text);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.btn {
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn:active,
+a:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  transform: scale(1.02);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--error);
+}
+
+.badge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.badge-blue {
+  border-color: rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent);
+  animation: stealthPulse 2s infinite;
+}
+
+.badge-green {
+  border-color: rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 25%, #27272a 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.page-enter {
+  animation: pageEnter 0.5s ease-out;
+}
+
+.stagger > * {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: pageEnter 0.5s ease-out forwards;
+}
+
+.stagger > *:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger > *:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.stagger > *:nth-child(3) {
+  animation-delay: 0.25s;
+}
+
+.stagger > *:nth-child(4) {
+  animation-delay: 0.35s;
+}
+
+.stagger > *:nth-child(5) {
+  animation-delay: 0.45s;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stealthPulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
