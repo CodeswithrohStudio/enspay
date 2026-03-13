@@ -1,0 +1,10 @@
+.env
+.env.local
+node_modules
+artifacts
+cache
+typechain-types
+coverage
+frontend/.next
+frontend/node_modules
+frontend/out
