@@ -132,6 +132,10 @@ a {
   box-shadow: none;
 }
 
+.input-with-icon {
+  padding-left: 56px;
+}
+
 .btn {
   border-radius: 6px;
   padding: 12px 24px;
