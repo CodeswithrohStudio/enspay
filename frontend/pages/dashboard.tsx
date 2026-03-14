@@ -112,6 +112,7 @@ export default function DashboardPage() {
             <p className="section-title mt-2">{formatUnits(stats.totalVolume, 6)}</p>
           </div>
         </div>
+        <div className="divider" />
 
         <div className="card">
           <h2 className="section-title">Last 5 Recent Routes</h2>

@@ -85,6 +85,7 @@ export default function SetupPage() {
         <p className="label-text">
           Connected wallet: {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
         </p>
+        <div className="divider" />
 
         <div className="grid gap-4">
           <label className="grid gap-1">
@@ -121,8 +122,8 @@ export default function SetupPage() {
             <textarea className="input min-h-[88px]" value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
 
-          <label className="flex items-center justify-between rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3">
-            <span className="label-text text-white">Enable Stealth Payments</span>
+          <label className="sub-card flex items-center justify-between">
+            <span className="label-text !text-[#F0EBE1]">Enable Stealth Payments</span>
             <input
               type="checkbox"
               className="h-4 w-4 accent-blue-500"
@@ -131,6 +132,7 @@ export default function SetupPage() {
             />
           </label>
         </div>
+        <div className="divider" />
 
         <button className="btn btn-primary mt-5" onClick={savePreferences} disabled={disabled}>
           {isConfirming ? "Confirming..." : "Save Preferences"}

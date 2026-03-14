@@ -142,9 +142,9 @@ export default function ShareablePayProfilePage() {
           <div className="stagger grid gap-5">
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
-                <img src={profile.avatarUrl} alt={`${profile.ensName} avatar`} className="h-16 w-16 rounded-full border border-white/20 object-cover" />
+                <img src={profile.avatarUrl} alt={`${profile.ensName} avatar`} className="h-16 w-16 rounded-full border border-[#2E2B27] object-cover" />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-2xl">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#2E2B27] bg-[#242220] text-2xl">
                   {profile.ensName[0]?.toUpperCase()}
                 </div>
               )}
@@ -155,11 +155,12 @@ export default function ShareablePayProfilePage() {
                 </p>
               </div>
             </div>
+            <div className="divider" />
 
             {profile.note ? (
-              <div className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3 text-sm text-white/80">{profile.note}</div>
+              <div className="sub-card text-sm text-[#F0EBE1]">{profile.note}</div>
             ) : (
-              <div className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-3 text-sm text-[#71717A]">No note set</div>
+              <div className="sub-card text-sm text-[#7A7570]">No note set</div>
             )}
 
             {profile.stealth && (
@@ -182,13 +183,14 @@ export default function ShareablePayProfilePage() {
                 {copied ? "Copied" : "Copy Payment Link"}
               </button>
             </div>
+            <div className="divider" />
 
-            <div className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-4">
+            <div className="sub-card">
               <h3 className="section-title">Recent Transactions</h3>
               <div className="mt-3 grid gap-2">
                 {txs.length === 0 && <p className="label-text">No payments yet</p>}
                 {txs.map((tx, i) => (
-                  <div key={`${tx.amount.toString()}-${i}`} className="rounded-xl border border-[#27272A] bg-[#1A1A1A] p-2 text-sm">
+                  <div key={`${tx.amount.toString()}-${i}`} className="sub-card text-sm">
                     {formatUnits(tx.amount, 6)} {tx.token}
                   </div>
                 ))}
