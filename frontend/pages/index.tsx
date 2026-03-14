@@ -14,6 +14,14 @@ import {
 import Layout from "@/components/Layout";
 import { getAmountOutMinimumFromSlippage, getENSPayPreferences, type ENSPayPreferences } from "@/utils/ens";
 import { BASE_SEPOLIA_USDC, ENSPAY_ROUTER_ABI, ENSPAY_ROUTER_ADDRESS, ERC20_ABI } from "@/utils/contracts";
+import {
+  getBridgeQuote,
+  getUSDCAddress,
+  resolveDestChainId,
+  isTestnet,
+  SPOKE_POOL_ABI,
+  type AcrossQuote,
+} from "@/utils/bridge";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -342,7 +350,7 @@ function QRScannerModal({ onResult, onClose }: {
 
 export default function HomePage() {
   const router = useRouter();
-  const { isConnected, chainId } = useAccount();
+  const { isConnected, chainId, address } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient({ chainId: baseSepolia.id });
@@ -441,32 +449,35 @@ export default function HomePage() {
     }
   }
 
-  async function ensureBaseSepolia() {
-    if (chainId !== baseSepolia.id) await switchChainAsync({ chainId: baseSepolia.id });
+  async function ensureChain(targetChainId: number) {
+    if (chainId !== targetChainId) await switchChainAsync({ chainId: targetChainId });
   }
 
-  async function approve(token: `0x${string}`, value: bigint) {
-    const h = await writeContractAsync({ address: token, abi: ERC20_ABI, functionName: "approve", args: [ENSPAY_ROUTER_ADDRESS as `0x${string}`, value] });
+  // Approve with a configurable spender (ENSPayRouter or SpokePool)
+  async function approveToken(token: `0x${string}`, spender: `0x${string}`, value: bigint) {
+    const h = await writeContractAsync({ address: token, abi: ERC20_ABI, functionName: "approve", args: [spender, value] });
     await publicClient?.waitForTransactionReceipt({ hash: h });
   }
 
+  // Same-chain direct USDC payment via ENSPayRouter
   async function pay() {
     setStatus({});
     try {
       if (!isConnected) throw new Error("Connect wallet first.");
       if (!prefs) throw new Error("Resolve ENS first.");
       if (!amountInBaseUnits) throw new Error("Invalid amount.");
-      if (payerTokenSymbol !== "USDC") throw new Error("Use Swap & Pay for non-USDC payer tokens.");
-      await ensureBaseSepolia();
-      await approve(BASE_SEPOLIA_USDC as `0x${string}`, amountInBaseUnits);
+      if (payerTokenSymbol !== "USDC") throw new Error("Use a non-USDC token for swap flow.");
+      await ensureChain(baseSepolia.id);
+      await approveToken(BASE_SEPOLIA_USDC as `0x${string}`, ENSPAY_ROUTER_ADDRESS as `0x${string}`, amountInBaseUnits);
       const hash = await writeContractAsync({ address: ENSPAY_ROUTER_ADDRESS as `0x${string}`, abi: ENSPAY_ROUTER_ABI, functionName: "resolveAndPay", args: [ensName, prefs.address as `0x${string}`, amountInBaseUnits] });
       setStatus({ hash, success: "Payment submitted." });
-      setSuccessModal({ open: true, title: `Payment of ${formatUnits(amountInBaseUnits, 6)} ${payerTokenSymbol} submitted.`, txHash: hash });
+      setSuccessModal({ open: true, title: `Payment of ${formatUnits(amountInBaseUnits, 6)} USDC submitted on Base Sepolia.`, txHash: hash });
     } catch (err) {
       setStatus({ error: err instanceof Error ? err.message : "Payment failed." });
     }
   }
 
+  // Same-chain swap + pay via ENSPayRouter (non-USDC payer token)
   async function swapAndPay() {
     setStatus({});
     try {
@@ -474,9 +485,9 @@ export default function HomePage() {
       if (!prefs) throw new Error("Resolve ENS first.");
       if (!amountInBaseUnits) throw new Error("Invalid amount.");
       if (selectedPayerToken.address === "0x0000000000000000000000000000000000000000") throw new Error(`Missing Base Sepolia ${selectedPayerToken.symbol} address in env.`);
-      await ensureBaseSepolia();
+      await ensureChain(baseSepolia.id);
       const tokenIn = (inputToken || BASE_SEPOLIA_USDC) as `0x${string}`;
-      await approve(tokenIn, amountInBaseUnits);
+      await approveToken(tokenIn, ENSPAY_ROUTER_ADDRESS as `0x${string}`, amountInBaseUnits);
       const minOut = getAmountOutMinimumFromSlippage(amountInBaseUnits, prefs.slippage);
       const hash = await writeContractAsync({ address: ENSPAY_ROUTER_ADDRESS as `0x${string}`, abi: ENSPAY_ROUTER_ABI, functionName: "resolveAndSwap", args: [ensName, prefs.address as `0x${string}`, tokenIn, amountInBaseUnits, minOut] });
       setStatus({ hash, success: "Swap + payment submitted." });
@@ -486,14 +497,97 @@ export default function HomePage() {
     }
   }
 
+  // Cross-chain payment via Across Protocol depositV3
+  async function bridgePay(quote: AcrossQuote) {
+    setStatus({});
+    try {
+      if (!isConnected) throw new Error("Connect wallet first.");
+      if (!prefs || !amountInBaseUnits || !address) throw new Error("Invalid state.");
+
+      // Stay on payer's chain — do NOT switch to Base Sepolia
+      await ensureChain(quote.originChainId);
+
+      // Approve USDC to the SpokePool on the payer's chain
+      await approveToken(quote.inputToken, quote.spokePoolAddress, amountInBaseUnits);
+
+      // Call depositV3 on the origin SpokePool
+      const hash = await writeContractAsync({
+        address: quote.spokePoolAddress,
+        abi: SPOKE_POOL_ABI,
+        functionName: "depositV3",
+        args: [
+          address,                          // depositor
+          prefs.address as `0x${string}`,   // recipient on destination chain
+          quote.inputToken,                 // inputToken (USDC on origin)
+          quote.outputToken,                // outputToken (USDC on destination)
+          amountInBaseUnits,                // inputAmount
+          quote.outputAmount,               // outputAmount (after bridge fee)
+          BigInt(quote.destinationChainId), // destinationChainId
+          quote.exclusiveRelayer,           // exclusiveRelayer
+          quote.quoteTimestamp,             // quoteTimestamp
+          quote.fillDeadline,               // fillDeadline
+          quote.exclusivityDeadline,        // exclusivityDeadline
+          "0x",                             // message (empty)
+        ],
+      });
+
+      const estFill = quote.estimatedFillTimeSec
+        ? ` Estimated delivery: ~${quote.estimatedFillTimeSec}s.`
+        : "";
+      const feeUSDC = formatUnits(quote.totalRelayFee.total, 6);
+      const outUSDC = formatUnits(quote.outputAmount, 6);
+
+      setStatus({ hash, success: "Bridge deposit submitted." });
+      setSuccessModal({
+        open: true,
+        title: `Cross-chain payment via Across Protocol. ${outUSDC} USDC will arrive on ${prefs.network} (fee: ${feeUSDC} USDC).${estFill}`,
+        txHash: hash,
+      });
+    } catch (err) {
+      setStatus({ error: err instanceof Error ? err.message : "Bridge failed." });
+    }
+  }
+
+  // Smart router: detects cross-chain vs same-chain and picks the right path
   async function paySmart() {
-    if (payerTokenSymbol === "USDC") await pay();
-    else await swapAndPay();
+    if (!prefs || !amountInBaseUnits) return;
+    setStatus({});
+
+    const result = await getBridgeQuote({
+      payerChainId: chainId ?? baseSepolia.id,
+      receiverNetwork: prefs.network,
+      amount: amountInBaseUnits,
+    });
+
+    if (result.isSameChain) {
+      // Same chain — use ENSPayRouter
+      if (payerTokenSymbol === "USDC") await pay();
+      else await swapAndPay();
+      return;
+    }
+
+    if (!result.ok) {
+      // Cross-chain route unavailable (e.g., testnets)
+      const isTestnetRoute = isTestnet(chainId ?? 0) && isTestnet(resolveDestChainId(prefs.network, chainId ?? 0));
+      if (isTestnetRoute) {
+        setStatus({
+          error: `Cross-chain bridging via Across Protocol requires mainnet. Connect to mainnet Base or Arbitrum to use cross-chain routing. On testnet, receiver must prefer the same chain you are on.`,
+        });
+      } else {
+        setStatus({ error: `Bridge unavailable: ${result.error}` });
+      }
+      return;
+    }
+
+    // Cross-chain — use Across bridge
+    await bridgePay(result.quote);
   }
 
   const payerChain = PAYER_CHAIN_OPTIONS.find((c) => c.key === payerChainKey) || getPayerChain(chainId);
   const receiverChain = getReceiverChain(prefs?.network);
-  const crossChainDetected = Boolean(prefs) && payerChain.key !== "unknown" && receiverChain.key !== "unknown" && !payerChain.key.includes(receiverChain.key);
+  // True cross-chain: payer's actual connected chain differs from receiver's preferred chain
+  const destChainId = prefs ? resolveDestChainId(prefs.network, chainId ?? baseSepolia.id) : null;
+  const crossChainDetected = Boolean(prefs) && destChainId !== null && destChainId !== (chainId ?? baseSepolia.id);
 
   function handleQRResult(ens: string, amt?: string) {
     setShowScanner(false);
@@ -751,7 +845,12 @@ export default function HomePage() {
               onClick={paySmart}
               disabled={!prefs || !amountInBaseUnits || confirming}
             >
-              {confirming ? "Confirming..." : `Pay ${ensName || ""}${crossChainDetected ? " (Cross-chain)" : ""}`}
+              {confirming
+                ? "Confirming..."
+                : crossChainDetected
+                  ? `Bridge via Across → ${prefs?.network ?? ""}`
+                  : `Pay ${ensName || ""}`
+              }
             </button>
           </div>
         )}
