@@ -29,10 +29,16 @@ export default function Layout({ title, children, wide }: Props) {
         <div className="flex items-center gap-4">
           <nav className="flex items-center gap-4">
             <Link href="/" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
-              Pay/Swap
+              Pay
+            </Link>
+            <Link href="/receive" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
+              Receive
             </Link>
             <Link href="/setup" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
               Setup
+            </Link>
+            <Link href="/events" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
+              Events
             </Link>
             <Link href="/dashboard" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
               Dashboard
