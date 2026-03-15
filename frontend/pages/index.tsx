@@ -106,9 +106,12 @@ function getPayerChain(chainId?: number): ChainVisual {
 
 function getReceiverChain(network?: string): ChainVisual {
   const v = (network || "").toLowerCase();
+  if (v === "base-sepolia") return { key: "base-sepolia", label: "Base Sepolia", icon: "/icons/base.svg" };
+  if (v === "arbitrum-sepolia") return { key: "arbitrum-sepolia", label: "Arbitrum Sepolia", icon: "/icons/arbitrum.svg" };
+  if (v === "sepolia") return { key: "sepolia", label: "Ethereum Sepolia", icon: "/icons/ethereum.svg" };
   if (v.includes("base")) return { key: "base", label: "Base", icon: "/icons/base.svg" };
   if (v.includes("arbitrum")) return { key: "arbitrum", label: "Arbitrum", icon: "/icons/arbitrum.svg" };
-  if (v.includes("eth")) return { key: "ethereum", label: "Ethereum", icon: "/icons/ethereum.svg" };
+  if (v.includes("eth") || v.includes("ethereum")) return { key: "ethereum", label: "Ethereum", icon: "/icons/ethereum.svg" };
   return { key: "unknown", label: "Unknown", icon: "/icons/network.svg" };
 }
 
@@ -553,8 +556,25 @@ export default function HomePage() {
     if (!prefs || !amountInBaseUnits) return;
     setStatus({});
 
+    const currentChainId = chainId ?? baseSepolia.id;
+    const destChainIdForRoute = resolveDestChainId(prefs.network, currentChainId);
+
+    // Testnet cross-chain: Across only supports mainnet.
+    // Switch the payer's wallet to the receiver's testnet chain and pay directly.
+    if (isTestnet(currentChainId) && destChainIdForRoute !== currentChainId) {
+      try {
+        await ensureChain(destChainIdForRoute);
+        // After chain switch, proceed as same-chain payment
+        if (payerTokenSymbol === "USDC") await pay();
+        else await swapAndPay();
+      } catch (err) {
+        setStatus({ error: err instanceof Error ? err.message : "Failed to switch network." });
+      }
+      return;
+    }
+
     const result = await getBridgeQuote({
-      payerChainId: chainId ?? baseSepolia.id,
+      payerChainId: currentChainId,
       receiverNetwork: prefs.network,
       amount: amountInBaseUnits,
     });
@@ -567,27 +587,22 @@ export default function HomePage() {
     }
 
     if (!result.ok) {
-      // Cross-chain route unavailable (e.g., testnets)
-      const isTestnetRoute = isTestnet(chainId ?? 0) && isTestnet(resolveDestChainId(prefs.network, chainId ?? 0));
-      if (isTestnetRoute) {
-        setStatus({
-          error: `Cross-chain bridging via Across Protocol requires mainnet. Connect to mainnet Base or Arbitrum to use cross-chain routing. On testnet, receiver must prefer the same chain you are on.`,
-        });
-      } else {
-        setStatus({ error: `Bridge unavailable: ${result.error}` });
-      }
+      setStatus({ error: `Bridge unavailable: ${result.error}` });
       return;
     }
 
-    // Cross-chain — use Across bridge
+    // Mainnet cross-chain — use Across bridge
     await bridgePay(result.quote);
   }
 
   const payerChain = PAYER_CHAIN_OPTIONS.find((c) => c.key === payerChainKey) || getPayerChain(chainId);
   const receiverChain = getReceiverChain(prefs?.network);
-  // True cross-chain: payer's actual connected chain differs from receiver's preferred chain
-  const destChainId = prefs ? resolveDestChainId(prefs.network, chainId ?? baseSepolia.id) : null;
-  const crossChainDetected = Boolean(prefs) && destChainId !== null && destChainId !== (chainId ?? baseSepolia.id);
+  const currentChainId = chainId ?? baseSepolia.id;
+  const destChainId = prefs ? resolveDestChainId(prefs.network, currentChainId) : null;
+  // Different chain = either a testnet switch or a mainnet bridge
+  const crossChainDetected = Boolean(prefs) && destChainId !== null && destChainId !== currentChainId;
+  // On testnet cross-chain: wallet switch, not a bridge
+  const isTestnetSwitch = crossChainDetected && isTestnet(currentChainId) && destChainId !== null && isTestnet(destChainId);
 
   function handleQRResult(ens: string, amt?: string) {
     setShowScanner(false);
@@ -770,7 +785,7 @@ export default function HomePage() {
                 <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
                   <RouteAsset title="You send" chainLabel={payerChain.label} chainIcon={payerChain.icon} tokenLabel={selectedPayerToken.symbol} tokenIcon={selectedPayerToken.icon} />
                   <div className="label-text text-center !text-[#3B82F6]">
-                    {crossChainDetected ? "⇌ Cross-chain" : "→"}
+                    {crossChainDetected ? (isTestnetSwitch ? "⇄ Switch chain" : "⇌ Bridge") : "→"}
                   </div>
                   <RouteAsset title="They receive" chainLabel={receiverChain.label} chainIcon={receiverChain.icon} tokenLabel={prefs.token || "USDC"} tokenIcon={getTokenIcon(prefs.token)} />
                 </div>
@@ -847,9 +862,11 @@ export default function HomePage() {
             >
               {confirming
                 ? "Confirming..."
-                : crossChainDetected
-                  ? `Bridge via Across → ${prefs?.network ?? ""}`
-                  : `Pay ${ensName || ""}`
+                : isTestnetSwitch
+                  ? `Switch to ${receiverChain.label} & Pay`
+                  : crossChainDetected
+                    ? `Bridge via Across → ${prefs?.network ?? ""}`
+                    : `Pay ${ensName || ""}`
               }
             </button>
           </div>

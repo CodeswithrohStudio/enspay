@@ -51,7 +51,7 @@ export async function resolveENS(ensName: string): Promise<ENSPayPreferences> {
 
     return {
       token: token || "USDC",
-      network: network || "base",
+      network: network || "base-sepolia",
       dex: dex || "uniswap",
       slippage: slippage || "0.5",
       note: note || "",
@@ -62,7 +62,7 @@ export async function resolveENS(ensName: string): Promise<ENSPayPreferences> {
 
   return {
     token: token || "USDC",
-    network: network || "base",
+    network: network || "base-sepolia",
     dex: dex || "uniswap",
     slippage: slippage || "0.5",
     note: note || "",
