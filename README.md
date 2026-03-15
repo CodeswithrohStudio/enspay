@@ -1,169 +1,277 @@
 # ENSPay
 
-ENSPay lets senders pay or swap tokens to a recipient by entering only an ENS name.  
-Preferences are stored on ENS Sepolia text records and execution happens on Base Sepolia.
+**Pay anyone with just their ENS name — no chain coordination, no token mismatch.**
 
-## Stack
+ENSPay lets receivers publish their payment preferences (token, chain, DEX, slippage) as ENS text records. Payers only need to know the recipient's `.eth` name. ENSPay resolves the preferences and routes the payment automatically — same-chain swap, cross-chain bridge, or stealth one-time address.
 
-- Solidity + Hardhat (`/contracts`, `/scripts`)
-- Next.js + Tailwind + wagmi + viem + RainbowKit (`/frontend`)
-- ENS reads/writes on Ethereum Sepolia
-- Payments/swaps on Base Sepolia
+---
+
+## How It Works
+
+```
+Receiver sets preferences once          Payer enters ENS name
+─────────────────────────────           ─────────────────────────────
+alice.eth → enspay.token = USDC         1. Resolve alice.eth text records
+           enspay.network = base        2. Detect payer chain
+           enspay.dex = uniswap         3. Route: same-chain or bridge
+           enspay.slippage = 0.5        4. Swap input token → USDC if needed
+           enspay.stealth = true        5. Deliver to stealth or direct address
+```
+
+No coordination needed between sender and receiver. The ENS record is the contract.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Frontend (Next.js)                      │
+│                                                                 │
+│  /           Pay page — ENS resolve + smart routing            │
+│  /setup      Receiver sets preferences on ENS text records     │
+│  /profiles   View + edit all saved ENS profiles (MongoDB)      │
+│  /receive    UPI-style QR terminal for receivers               │
+│  /pay/[ens]  Shareable pay page per ENS name                   │
+│  /dashboard  Transaction history + analytics                   │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+         ┌───────────┴────────────┐
+         │                        │
+┌────────▼──────────┐   ┌────────▼──────────────────────────────┐
+│  Ethereum Sepolia │   │  Base Sepolia                         │
+│                   │   │                                       │
+│  ENS Registry     │   │  ENSPayRouter.sol                     │
+│  ENS Resolver     │   │   ├─ resolveAndPay()  → USDC transfer │
+│  setText()        │   │   └─ resolveAndSwap() → Uniswap V3    │
+│  getText()        │   │                                       │
+└───────────────────┘   └───────────────────────────────────────┘
+                     │
+         ┌───────────┴────────────┐
+         │                        │
+┌────────▼──────────┐   ┌────────▼──────────┐
+│  Across Protocol  │   │  MongoDB Atlas    │
+│  (cross-chain     │   │  ens_profiles     │
+│   bridging v3)    │   │  (off-chain cache)│
+└───────────────────┘   └───────────────────┘
+```
+
+### Payment Routing Logic
+
+```
+payer submits ENS + amount + input token
+         │
+         ▼
+   resolve ENS text records
+         │
+         ▼
+   same chain as receiver? ──yes──► input === USDC? ──yes──► resolveAndPay()
+         │                                           └──no───► resolveAndSwap()
+         │
+        no
+         │
+         ▼
+   Across Protocol available? ──yes──► depositV3() on SpokePool
+         │
+        no
+         │
+         ▼
+   show "cross-chain requires mainnet" error
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart contracts | Solidity 0.8.24, Hardhat |
+| Frontend | Next.js 14, TypeScript, Tailwind CSS |
+| Wallet | wagmi v2, viem, RainbowKit |
+| ENS | ENS Sepolia (Registry + PublicResolver) |
+| DEX | Uniswap V3 `exactInputSingle` on Base Sepolia |
+| Cross-chain | Across Protocol v3 (`depositV3`) |
+| Stealth payments | One-time address generation via `/api/stealth-address` |
+| Database | MongoDB Atlas (off-chain ENS profile cache) |
+| QR scanning | BarcodeDetector API + EIP-681 URI parsing |
+
+---
 
 ## Project Structure
 
 ```
-/contracts
-  ENSPayRouter.sol
-/scripts
-  deploy.js
-/frontend
-  /pages
-    index.tsx
-    setup.tsx
-    dashboard.tsx
-  /components
-  /utils
-    ens.ts
-    contracts.ts
+enspay/
+├── contracts/
+│   └── ENSPayRouter.sol         # Pay + swap router on Base Sepolia
+├── scripts/
+│   └── deploy.js                # Hardhat deploy script
+├── frontend/
+│   ├── pages/
+│   │   ├── index.tsx            # Pay page (UPI-style, QR scan, ENS input)
+│   │   ├── setup.tsx            # Receiver preference setup
+│   │   ├── profiles.tsx         # View + edit saved ENS profiles
+│   │   ├── receive.tsx          # QR payment terminal for receivers
+│   │   ├── dashboard.tsx        # Transaction analytics
+│   │   ├── pay/[ens].tsx        # Shareable pay-by-ENS page
+│   │   └── api/
+│   │       ├── profile.ts       # CRUD for MongoDB ENS profiles
+│   │       └── stealth-address.ts # One-time stealth address generation
+│   ├── components/
+│   │   └── Layout.tsx           # Nav + header shell
+│   └── utils/
+│       ├── ens.ts               # ENS text record resolution helpers
+│       ├── contracts.ts         # ABI + deployed contract addresses
+│       ├── bridge.ts            # Across Protocol v3 integration
+│       ├── mongodb.ts           # MongoDB client + ENSProfile CRUD
+│       ├── wagmi.ts             # Wagmi + RainbowKit config
+│       └── stealthStore.ts      # Stealth commitment store
+├── hardhat.config.js
+└── package.json
 ```
 
-## Environment
+---
 
-Copy `.env.example` to `.env` and fill values:
+## ENS Text Records
 
+ENSPay reads and writes these keys on the ENS `PublicResolver`:
+
+| Key | Values | Description |
+|---|---|---|
+| `enspay.token` | `USDC`, `USDT`, `DAI`, `WETH` | Preferred output token |
+| `enspay.network` | `base`, `arbitrum`, `ethereum` | Preferred destination chain |
+| `enspay.dex` | `uniswap`, `aerodrome`, `sushiswap` | Preferred DEX |
+| `enspay.slippage` | `0.1` – `50` | Max slippage % |
+| `enspay.note` | any string | Optional note shown to payers |
+| `enspay.stealth` | `true` / `false` | Enable stealth (one-time) addresses |
+
+All 6 records are written in a single `multicall()` transaction on Ethereum Sepolia.
+
+---
+
+## Smart Contract
+
+**`ENSPayRouter.sol`** — deployed on Base Sepolia at `0xD07f07f038c202F8DEbc4345626466ef4AC93b99`
+
+```solidity
+// Direct USDC transfer
+function resolveAndPay(address recipient, uint256 amount) external;
+
+// Swap any ERC-20 → USDC via Uniswap V3, then transfer
+function resolveAndSwap(
+    address recipient,
+    address inputToken,
+    uint256 amountIn,
+    uint256 amountOutMinimum
+) external;
 ```
-PRIVATE_KEY=
-BASE_SEPOLIA_RPC_URL=
-ETH_SEPOLIA_RPC_URL=
-BASE_SEPOLIA_USDC_ADDRESS=
-BASE_SEPOLIA_SWAP_ROUTER02=0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4
-NEXT_PUBLIC_BASE_SEPOLIA_RPC=
-NEXT_PUBLIC_ETH_SEPOLIA_RPC=
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
-NEXT_PUBLIC_BASE_SEPOLIA_USDC=
-NEXT_PUBLIC_ENSPAY_ROUTER_ADDRESS=
-```
+
+- Output token is always USDC (`0x036CbD53842c5426634e7929541eC2318f3dCF7e` on Base Sepolia)
+- Swap uses Uniswap V3 `exactInputSingle` with 0.3% fee tier
+- Default slippage: `DEFAULT_SLIPPAGE_BPS = 50` (0.5%)
+
+---
 
 ## ENS Contracts (Sepolia)
 
-- ENSRegistry: `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e`
-- PublicResolver: `0x8FADE66B79cC9f707aB26799354482EB93a5B7dD`
+| Contract | Address |
+|---|---|
+| ENS Registry | `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` |
+| Public Resolver | `0x8FADE66B79cC9f707aB26799354482EB93a5B7dD` |
 
-## Setup
+---
 
-1. Install root dependencies:
-   ```bash
-   npm install
-   ```
-2. Compile contracts:
-   ```bash
-   npm run compile
-   ```
-3. Deploy router on Base Sepolia:
-   ```bash
-   npm run deploy:base-sepolia
-   ```
-4. Put deployed router address into `NEXT_PUBLIC_ENSPAY_ROUTER_ADDRESS`.
-5. Install frontend dependencies:
-   ```bash
-   cd frontend && npm install
-   ```
-6. Run frontend:
-   ```bash
-   npm run dev
-   ```
+## Local Setup
 
-## Quick Validation Commands
+### Prerequisites
 
-1. Validate deployed router (Base Sepolia):
-   ```bash
-   npm run validate:deployment
-   ```
-   Expected:
-   - Bytecode present
-   - `usdc()` = `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
-   - `swapRouter02()` = `0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4`
-   - `DEFAULT_SLIPPAGE_BPS()` = `50`
+- Node.js 18+
+- A WalletConnect Project ID (free at cloud.walletconnect.com)
+- A MongoDB Atlas cluster URI
 
-2. Validate ENS text records read (Sepolia):
-   - Add this to `.env`:
-     ```bash
-     TEST_ENS_NAME=yourname.eth
-     ```
-   - Run:
-     ```bash
-     npm run read:ens
-     ```
-   Expected:
-   - Resolved address is non-empty
-   - `enspay.*` keys print expected values
+### 1. Clone and install
 
-## Contract Overview
+```bash
+git clone https://github.com/your-username/enspay.git
+cd enspay
+npm install
+cd frontend && npm install
+```
 
-`ENSPayRouter.sol` supports:
+### 2. Configure environment
 
-- `resolveAndPay(string ensName, address recipient, uint256 amount)`
-- `resolveAndSwap(string ensName, address recipient, address inputToken, uint256 amountIn, uint256 amountOutMinimum)`
+Create `frontend/.env.local`:
 
-Notes:
+```env
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/brobet
 
-- For the L1/L2 split (ENS on Sepolia, execution on Base Sepolia), ENS resolution is performed in frontend and recipient address is passed into the router call.
-- USDC is the output token for both pay and swap routes.
-- Swap uses Uniswap V3 `exactInputSingle` with 0.3% fee tier.
-- Default slippage utility: `DEFAULT_SLIPPAGE_BPS = 50` (0.5%).
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+NEXT_PUBLIC_BASE_SEPOLIA_RPC=
+NEXT_PUBLIC_ETH_SEPOLIA_RPC=
+NEXT_PUBLIC_BASE_SEPOLIA_USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+NEXT_PUBLIC_ENSPAY_ROUTER_ADDRESS=0xD07f07f038c202F8DEbc4345626466ef4AC93b99
+```
 
-## Frontend Screens
+Create root `.env` for Hardhat:
 
-1. `/setup`: Saves ENS text records using resolver `setText()` on Sepolia.
-2. `/` (landing): Resolves ENS preferences and executes `Pay` or `Swap & Pay` on Base Sepolia.
-3. `/dashboard`: Reads `PaymentRouted` and `SwapRouted` events and displays totals + last 5 routes.
+```env
+PRIVATE_KEY=
+BASE_SEPOLIA_RPC_URL=
+ETH_SEPOLIA_RPC_URL=
+```
 
-## ENS Text Records Used
+### 3. Run the frontend
 
-- `enspay.token`
-- `enspay.network`
-- `enspay.dex`
-- `enspay.slippage`
-- `enspay.note`
+```bash
+cd frontend
+npm run dev
+```
 
-## Validation Checklist
+Open [http://localhost:3000](http://localhost:3000).
 
-1. `setText()` + `getText()` on ENS Sepolia:
-   - Start frontend:
-     ```bash
-     cd frontend
-     npm run dev
-     ```
-   - Open `http://localhost:3000/setup`
-   - Connect wallet, switch to Sepolia, enter ENS, click `Save Preferences` (5 `setText()` txs).
-   - Then verify in CLI:
-     ```bash
-     cd ..
-     TEST_ENS_NAME=yourname.eth npm run read:ens
-     ```
-   - Or verify in UI at `http://localhost:3000/` using `Resolve Preferences`.
-2. `resolveAndPay()` USDC transfer:
-   - Ensure env has:
-     - `NEXT_PUBLIC_ENSPAY_ROUTER_ADDRESS=0xD07f07f038c202F8DEbc4345626466ef4AC93b99`
-     - `NEXT_PUBLIC_BASE_SEPOLIA_USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e`
-   - Open `http://localhost:3000/`
-   - Resolve recipient ENS
-   - Enter amount (for example `1`)
-   - Click `Pay` and approve USDC + router tx in wallet
-   - Confirm recipient USDC increased on Base Sepolia explorer.
-3. `resolveAndSwap()` Uniswap exact input single:
-   - On `http://localhost:3000/`, set `Swap Input Token` to a Base Sepolia token with a USDC pool.
-   - Click `Swap & Pay`
-   - Confirm approval + swap tx in wallet
-   - Verify in dashboard and explorer logs that `SwapRouted` emitted.
-4. 3-screen functional flow:
-   - `/setup`, `/`, `/dashboard` all connected to chain.
-5. RainbowKit:
-   - Wallet can connect and switch between Sepolia and Base Sepolia in-app.
+### 4. Deploy contracts (optional — already deployed)
 
-## Important MVP Constraints
+```bash
+# From repo root
+npm run compile
+npm run deploy:base-sepolia
+```
 
-- ERC20 only (no native ETH route).
-- USDC only as recipient output token.
-- `amountOutMinimum` is provided from frontend based on ENS slippage preference.
+---
+
+## Key Features
+
+### Smart Payment Routing
+The pay page resolves recipient preferences and picks the right route automatically. Same-chain USDC goes direct. Same-chain with a different token goes through a Uniswap V3 swap. Cross-chain payments use Across Protocol v3 `depositV3`.
+
+### Stealth Payments
+When a receiver enables stealth mode, each payer gets a unique one-time address. The payer's identity is never linked to the recipient on-chain. QR codes encode EIP-681 URIs pointing to the ephemeral address.
+
+### QR Payment Terminal
+The `/receive` page generates a QR code receivers can display. Static mode encodes a pay link; stealth mode encodes an EIP-681 `ethereum:` URI with a fresh one-time address. The pay page can scan these QR codes via the browser's native `BarcodeDetector` API.
+
+### ENS Profiles Manager
+The `/profiles` page loads all ENS names saved by the connected wallet from MongoDB. Each profile card shows current preferences and lets the receiver edit inline — saving both on-chain (ENS `multicall`) and to MongoDB simultaneously.
+
+### Transaction Dashboard
+The `/dashboard` page displays sent/received transaction history, daily volume charts, route mix breakdown (pay vs swap), and top recipient stats.
+
+---
+
+## API Routes
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/profile?ens=alice.eth` | Fetch single ENS profile |
+| `GET` | `/api/profile?address=0x...` | Fetch all profiles for a wallet |
+| `POST` | `/api/profile` | Create or update a profile |
+| `DELETE` | `/api/profile?ens=alice.eth&address=0x...` | Delete a profile |
+| `POST` | `/api/stealth-address` | Generate a one-time stealth address |
+
+---
+
+## Testnet Notes
+
+- **ENS records**: Ethereum Sepolia
+- **Payments / swaps**: Base Sepolia
+- **Cross-chain bridging**: Across Protocol only supports mainnet chains. Testnet cross-chain payments show a clear error. On mainnet, bridging works transparently.
+- All USDC addresses used are official Circle testnet deployments.

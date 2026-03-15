@@ -45,7 +45,7 @@ export default function Layout({ title, children, wide }: Props) {
             </Link>
           </nav>
           <div className="rounded-md border border-[#2E2B27] bg-transparent px-2 py-1">
-            <ConnectButton />
+            <ConnectButton showBalance={false} />
           </div>
         </div>
         </div>
