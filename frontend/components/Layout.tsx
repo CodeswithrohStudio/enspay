@@ -2,6 +2,48 @@ import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { ReactNode } from "react";
 
+function WalletButton() {
+  return (
+    <ConnectButton.Custom>
+      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+        const ready = mounted;
+        const connected = ready && account && chain;
+        return (
+          <div
+            {...(!ready && {
+              "aria-hidden": true,
+              style: { opacity: 0, pointerEvents: "none", userSelect: "none" },
+            })}
+          >
+            {!connected ? (
+              <button
+                onClick={openConnectModal}
+                className="rounded-lg border border-[#2E2B27] bg-transparent px-4 py-2 text-sm font-medium text-[#F0EBE1] transition-colors hover:border-blue-500 hover:text-blue-400"
+              >
+                Connect Wallet
+              </button>
+            ) : chain.unsupported ? (
+              <button
+                onClick={openChainModal}
+                className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
+              >
+                Wrong network
+              </button>
+            ) : (
+              <button
+                onClick={openAccountModal}
+                className="rounded-lg border border-[#2E2B27] bg-transparent px-4 py-2 text-sm font-mono text-[#B0A99F] transition-colors hover:border-[#3E3B37] hover:text-[#F0EBE1]"
+              >
+                {account.displayName}
+              </button>
+            )}
+          </div>
+        );
+      }}
+    </ConnectButton.Custom>
+  );
+}
+
 type Props = {
   title: string;
   children: ReactNode;
@@ -44,9 +86,7 @@ export default function Layout({ title, children, wide }: Props) {
               Dashboard
             </Link>
           </nav>
-          <div className="rounded-md border border-[#2E2B27] bg-transparent px-2 py-1">
-            <ConnectButton showBalance={false} />
-          </div>
+          <WalletButton />
         </div>
         </div>
       </header>
