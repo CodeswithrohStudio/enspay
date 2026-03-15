@@ -65,7 +65,7 @@ export function resolveDestChainId(receiverNetwork: string, payerChainId: number
 
   if (n.includes("base")) return onTestnet ? CHAIN_IDS.BASE_SEPOLIA : CHAIN_IDS.BASE;
   if (n.includes("arbitrum")) return onTestnet ? CHAIN_IDS.ARBITRUM_SEPOLIA : CHAIN_IDS.ARBITRUM;
-  if (n.includes("eth") || n.includes("ethereum")) return onTestnet ? CHAIN_IDS.SEPOLIA : CHAIN_IDS.ETHEREUM;
+  if (n.includes("eth") || n.includes("ethereum") || n === "sepolia") return onTestnet ? CHAIN_IDS.SEPOLIA : CHAIN_IDS.ETHEREUM;
   if (n.includes("optimism") || n.includes("op")) return CHAIN_IDS.OPTIMISM;
   if (n.includes("polygon")) return CHAIN_IDS.POLYGON;
 

@@ -32,9 +32,9 @@ const TOKEN_OPTIONS = [
 ];
 
 const NETWORK_OPTIONS = [
-  { value: "base", label: "Base", icon: "/icons/base.svg" },
-  { value: "arbitrum", label: "Arbitrum", icon: "/icons/arbitrum.svg" },
-  { value: "ethereum", label: "Ethereum", icon: "/icons/ethereum.svg" }
+  { value: "base-sepolia", label: "Base Sepolia", icon: "/icons/base.svg" },
+  { value: "arbitrum-sepolia", label: "Arbitrum Sepolia", icon: "/icons/arbitrum.svg" },
+  { value: "sepolia", label: "Ethereum Sepolia", icon: "/icons/ethereum.svg" }
 ];
 
 function shortHash(value: string) {
@@ -47,7 +47,7 @@ export default function SetupPage() {
   const { writeContractAsync } = useWriteContract();
   const [ensName, setEnsName] = useState("");
   const [token, setToken] = useState("USDC");
-  const [network, setNetwork] = useState("base");
+  const [network, setNetwork] = useState("base-sepolia");
   const [dex, setDex] = useState("uniswap");
   const [slippage, setSlippage] = useState("0.5");
   const [note, setNote] = useState("");
@@ -85,7 +85,7 @@ export default function SetupPage() {
 
       const records: Array<[string, string]> = [
         ["enspay.token", token || "USDC"],
-        ["enspay.network", network || "base"],
+        ["enspay.network", network || "base-sepolia"],
         ["enspay.dex", dex || "uniswap"],
         ["enspay.slippage", slippage || "0.5"],
         ["enspay.note", note || ""],
@@ -121,7 +121,7 @@ export default function SetupPage() {
           ensName,
           ownerAddress: address,
           token: token || "USDC",
-          network: network || "base",
+          network: network || "base-sepolia",
           dex: dex || "uniswap",
           slippage: slippage || "0.5",
           note: note || "",
