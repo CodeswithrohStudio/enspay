@@ -112,6 +112,22 @@ export default function SetupPage() {
         success: "Preferences saved in a single transaction."
       });
       setSuccessModal({ open: true, txHash: finalHash });
+
+      // Persist to MongoDB for instant lookups on the Profiles page
+      void fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ensName,
+          ownerAddress: address,
+          token: token || "USDC",
+          network: network || "base",
+          dex: dex || "uniswap",
+          slippage: slippage || "0.5",
+          note: note || "",
+          stealth,
+        }),
+      });
     } catch (err) {
       setStatus({ error: err instanceof Error ? err.message : "Failed to save ENS text records." });
     }

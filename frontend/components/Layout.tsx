@@ -37,8 +37,8 @@ export default function Layout({ title, children, wide }: Props) {
             <Link href="/setup" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
               Setup
             </Link>
-            <Link href="/events" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
-              Events
+            <Link href="/profiles" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
+              Profiles
             </Link>
             <Link href="/dashboard" className="label-text !text-[#7A7570] transition-all duration-200 hover:!text-[#F0EBE1]">
               Dashboard
